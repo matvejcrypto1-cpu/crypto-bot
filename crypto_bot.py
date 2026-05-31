@@ -14,6 +14,7 @@ from telegram.ext import (
 )
 
 API_BASE = "https://api.coingecko.com/api/v3"
+API_HEADERS = {"accept": "application/json", "user-agent": "Mozilla/5.0"}
 
 WAITING_COIN = 0
 
@@ -54,7 +55,7 @@ def get_coin_price(coin_id):
         "developer_data": "false",
         "sparkline": "false",
     }
-    resp = requests.get(url, params=params, timeout=10)
+    resp = requests.get(url, params=params, headers=API_HEADERS, timeout=10)
     resp.raise_for_status()
     return resp.json()
 
@@ -69,7 +70,7 @@ def get_top_coins(limit=5):
         "page": 1,
         "sparkline": "false",
     }
-    resp = requests.get(url, params=params, timeout=10)
+    resp = requests.get(url, params=params, headers=API_HEADERS, timeout=10)
     resp.raise_for_status()
     return resp.json()
 
@@ -77,7 +78,7 @@ def get_top_coins(limit=5):
 def get_global_data():
     """Получает глобальные данные рынка."""
     url = f"{API_BASE}/global"
-    resp = requests.get(url, timeout=10)
+    resp = requests.get(url, headers=API_HEADERS, timeout=10)
     resp.raise_for_status()
     return resp.json()
 
@@ -113,10 +114,10 @@ async def price_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"❌ Монета «{coin_id}» не найдена. Попробуй ещё раз:"
             )
             return WAITING_COIN
-        await update.message.reply_text("⚠️ Ошибка API. Попробуй позже.")
+        await update.message.reply_text("⚠️ API временно недоступен, попробуй через минуту")
         return ConversationHandler.END
     except Exception:
-        await update.message.reply_text("⚠️ Ошибка соединения. Попробуй позже.")
+        await update.message.reply_text("⚠️ API временно недоступен, попробуй через минуту")
         return ConversationHandler.END
 
     name = data.get("name", coin_id)
@@ -145,7 +146,7 @@ async def top(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         coins = get_top_coins(5)
     except Exception:
-        await update.message.reply_text("⚠️ Ошибка API. Попробуй позже.")
+        await update.message.reply_text("⚠️ API временно недоступен, попробуй через минуту")
         return
 
     lines = ["🏆 Топ 5 криптовалют\n"]
@@ -162,7 +163,7 @@ async def dominance(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         data = get_global_data()
     except Exception:
-        await update.message.reply_text("⚠️ Ошибка API. Попробуй позже.")
+        await update.message.reply_text("⚠️ API временно недоступен, попробуй через минуту")
         return
 
     market = data.get("data", {}).get("market_cap_percentage", {})
@@ -180,8 +181,29 @@ async def dominance(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ── main ────────────────────────────────────────────────────────────
 
 
+async def post_init(app):
+    commands = [
+        ("start", "Запустить бота"),
+        ("price", "Узнать цену монеты"),
+        ("top", "Топ 5 криптовалют"),
+        ("dominance", "Доминация рынка"),
+        ("help", "Помощь"),
+    ]
+    await app.bot.set_my_commands(commands)
+
+
+async def help_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(
+        "📖 Доступные команды:\n\n"
+        "/price — узнать цену монеты\n"
+        "/top — топ 5 монет по капитализации\n"
+        "/dominance — доминация BTC и ETH\n"
+        "/help — эта справка"
+    )
+
+
 def main():
-    app = ApplicationBuilder().token(BOT_TOKEN).build()
+    app = ApplicationBuilder().token(BOT_TOKEN).post_init(post_init).build()
 
     price_handler = ConversationHandler(
         entry_points=[CommandHandler("price", price_start)],
@@ -197,6 +219,7 @@ def main():
     app.add_handler(price_handler)
     app.add_handler(CommandHandler("top", top))
     app.add_handler(CommandHandler("dominance", dominance))
+    app.add_handler(CommandHandler("help", help_cmd))
 
     print("🤖 Крипто-бот запущен...")
     app.run_polling()
