@@ -3,6 +3,7 @@ import os
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 
 import requests
+import logging
 from telegram import Update
 from telegram.ext import (
     ApplicationBuilder,
@@ -11,6 +12,11 @@ from telegram.ext import (
     ConversationHandler,
     ContextTypes,
     filters,
+)
+
+logging.basicConfig(
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    level=logging.INFO,
 )
 
 API_BASE = "https://api.coingecko.com/api/v3"
@@ -97,6 +103,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def price_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    logging.info("price_start called by user %s", update.effective_user.id)
     await update.message.reply_text(
         "🪙 Enter coin name (e.g. bitcoin, ethereum, solana):"
     )
@@ -105,6 +112,7 @@ async def price_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def price_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
     coin_id = update.message.text.strip().lower()
+    logging.info("price_input called with coin: %s", coin_id)
 
     try:
         data = get_coin_price(coin_id)
@@ -221,8 +229,17 @@ def main():
     app.add_handler(CommandHandler("dominance", dominance))
     app.add_handler(CommandHandler("help", help_cmd))
 
+    async def error_handler(update, context):
+        logging.error("Exception: %s", context.error, exc_info=context.error)
+        if update and update.effective_message:
+            await update.effective_message.reply_text(
+                f"⚠️ Error: {context.error}"
+            )
+
+    app.add_error_handler(error_handler)
+
     print("🤖 Crypto bot started...")
-    app.run_polling()
+    app.run_polling(allowed_updates=Update.ALL_TYPES)
 
 
 if __name__ == "__main__":
