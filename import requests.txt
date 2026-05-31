@@ -1,0 +1,40 @@
+import requests
+from bs4 import BeautifulSoup
+import time
+
+BOT_TOKEN = "8915818050:AAFDUXJRYibcmIYBhyorTPBSdcT_dkJ86MI"
+CHAT_ID = "5877409438"
+
+def send_telegram(text):
+    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
+    requests.post(url, data={"chat_id": CHAT_ID, "text": text, "parse_mode": "HTML"})
+
+def parse_kwork(keyword):
+    url = f"https://kwork.ru/projects?c=41&keyword={keyword}"
+    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
+    
+    response = requests.get(url, headers=headers)
+    soup = BeautifulSoup(response.text, "html.parser")
+    
+    projects = soup.find_all("div", class_="want-card")
+    
+    if not projects:
+        send_telegram(f"❌ По запросу <b>{keyword}</b> ничего не найдено")
+        return
+
+    send_telegram(f"🔍 Нашёл заказы по запросу: <b>{keyword}</b>")
+    
+    for project in projects[:5]:
+        try:
+            title = project.find("a", class_="want-card__title").text.strip()
+            link = "https://kwork.ru" + project.find("a", class_="want-card__title")["href"]
+            price = project.find("div", class_="want-card__price").text.strip()
+            
+            msg = f"📌 <b>{title}</b>\n💰 {price}\n🔗 {link}"
+            send_telegram(msg)
+            time.sleep(1)
+        except:
+            continue
+
+keyword = input("Введи ключевое слово для поиска: ")
+parse_kwork(keyword)
