@@ -20,7 +20,7 @@ WAITING_COIN = 0
 
 
 def format_usd(value):
-    """Форматирует число в читаемую цену USD."""
+    """Formats a number into a readable USD price."""
     if value is None:
         return "N/A"
     if value >= 1_000_000_000_000:
@@ -35,7 +35,7 @@ def format_usd(value):
 
 
 def format_change(change):
-    """Форматирует процент изменения с + или -."""
+    """Formats percentage change with + or - sign."""
     if change is None:
         return "N/A"
     sign = "+" if change >= 0 else ""
@@ -46,7 +46,7 @@ def format_change(change):
 
 
 def get_coin_price(coin_id):
-    """Получает данные о монете через CoinGecko API."""
+    """Fetches coin data from CoinGecko API."""
     url = f"{API_BASE}/coins/{coin_id}"
     params = {
         "localization": "false",
@@ -61,7 +61,7 @@ def get_coin_price(coin_id):
 
 
 def get_top_coins(limit=5):
-    """Получает топ монет по капитализации."""
+    """Fetches top coins by market cap."""
     url = f"{API_BASE}/coins/markets"
     params = {
         "vs_currency": "usd",
@@ -76,7 +76,7 @@ def get_top_coins(limit=5):
 
 
 def get_global_data():
-    """Получает глобальные данные рынка."""
+    """Fetches global market data."""
     url = f"{API_BASE}/global"
     resp = requests.get(url, headers=API_HEADERS, timeout=10)
     resp.raise_for_status()
@@ -88,17 +88,17 @@ def get_global_data():
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "👋 Привет! Я крипто бот.\n\n"
-        "Доступные команды:\n"
-        "/price — узнать цену монеты\n"
-        "/top — топ 5 монет по капитализации\n"
-        "/dominance — доминация BTC и ETH"
+        "👋 Hi! I'm a crypto bot.\n\n"
+        "Available commands:\n"
+        "/price — check coin price\n"
+        "/top — top 5 coins by market cap\n"
+        "/dominance — BTC and ETH dominance"
     )
 
 
 async def price_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "🪙 Введи название монеты (например bitcoin, ethereum, solana):"
+        "🪙 Enter coin name (e.g. bitcoin, ethereum, solana):"
     )
     return WAITING_COIN
 
@@ -111,13 +111,13 @@ async def price_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except requests.exceptions.HTTPError as e:
         if e.response.status_code == 404:
             await update.message.reply_text(
-                f"❌ Монета «{coin_id}» не найдена. Попробуй ещё раз:"
+                f"❌ Coin \"{coin_id}\" not found. Try again:"
             )
             return WAITING_COIN
-        await update.message.reply_text("⚠️ API временно недоступен, попробуй через минуту")
+        await update.message.reply_text("⚠️ API is temporarily unavailable, try again in a minute")
         return ConversationHandler.END
     except Exception:
-        await update.message.reply_text("⚠️ API временно недоступен, попробуй через минуту")
+        await update.message.reply_text("⚠️ API is temporarily unavailable, try again in a minute")
         return ConversationHandler.END
 
     name = data.get("name", coin_id)
@@ -129,16 +129,16 @@ async def price_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     message = (
         f"📊 {name} ({symbol})\n"
-        f"💰 Цена: {format_usd(price)}\n"
-        f"📈 За 24ч: {format_change(change_24h)}\n"
-        f"💎 Капитализация: {format_usd(market_cap)}"
+        f"💰 Price: {format_usd(price)}\n"
+        f"📈 24h: {format_change(change_24h)}\n"
+        f"💎 Market Cap: {format_usd(market_cap)}"
     )
     await update.message.reply_text(message)
     return ConversationHandler.END
 
 
 async def price_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("❌ Отменено.")
+    await update.message.reply_text("❌ Cancelled.")
     return ConversationHandler.END
 
 
@@ -146,10 +146,10 @@ async def top(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         coins = get_top_coins(5)
     except Exception:
-        await update.message.reply_text("⚠️ API временно недоступен, попробуй через минуту")
+        await update.message.reply_text("⚠️ API is temporarily unavailable, try again in a minute")
         return
 
-    lines = ["🏆 Топ 5 криптовалют\n"]
+    lines = ["🏆 Top 5 Cryptocurrencies\n"]
     for i, coin in enumerate(coins, start=1):
         name = coin.get("name", "Unknown")
         price = format_usd(coin.get("current_price"))
@@ -163,7 +163,7 @@ async def dominance(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         data = get_global_data()
     except Exception:
-        await update.message.reply_text("⚠️ API временно недоступен, попробуй через минуту")
+        await update.message.reply_text("⚠️ API is temporarily unavailable, try again in a minute")
         return
 
     market = data.get("data", {}).get("market_cap_percentage", {})
@@ -171,7 +171,7 @@ async def dominance(update: Update, context: ContextTypes.DEFAULT_TYPE):
     eth = market.get("eth", 0)
 
     message = (
-        "📊 Доминация рынка\n\n"
+        "📊 Market Dominance\n\n"
         f"₿ Bitcoin: {btc:.1f}%\n"
         f"Ξ Ethereum: {eth:.1f}%"
     )
@@ -183,22 +183,22 @@ async def dominance(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def post_init(app):
     commands = [
-        ("start", "Запустить бота"),
-        ("price", "Узнать цену монеты"),
-        ("top", "Топ 5 криптовалют"),
-        ("dominance", "Доминация рынка"),
-        ("help", "Помощь"),
+        ("start", "Start the bot"),
+        ("price", "Check coin price"),
+        ("top", "Top 5 cryptocurrencies"),
+        ("dominance", "Market dominance"),
+        ("help", "Help"),
     ]
     await app.bot.set_my_commands(commands)
 
 
 async def help_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "📖 Доступные команды:\n\n"
-        "/price — узнать цену монеты\n"
-        "/top — топ 5 монет по капитализации\n"
-        "/dominance — доминация BTC и ETH\n"
-        "/help — эта справка"
+        "📖 Available commands:\n\n"
+        "/price — check coin price\n"
+        "/top — top 5 coins by market cap\n"
+        "/dominance — BTC and ETH dominance\n"
+        "/help — this help message"
     )
 
 
@@ -221,7 +221,7 @@ def main():
     app.add_handler(CommandHandler("dominance", dominance))
     app.add_handler(CommandHandler("help", help_cmd))
 
-    print("🤖 Крипто-бот запущен...")
+    print("🤖 Crypto bot started...")
     app.run_polling()
 
 
