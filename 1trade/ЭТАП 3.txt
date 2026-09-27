@@ -1,0 +1,85 @@
+var TOKEN = "ТОКЕН БОТА ИЗ BOT FATHER";
+var CHANNEL_ID = "ЮЗЕРНЕЙМ КАНАЛА НА КОТОРЫЙ НУЖНО ПОДПИСАТЬСЯ Например:@traders1com"; 
+var MINI_APP_URL = "https://ТВОЙ НИК НА ГИТХАБЕ.github.io/1trade/index.html"; 
+var REG_URL = "ТВОЯ РЕФЕРАЛЬНАЯ ССЫЛКА С 1TRADE"; 
+var SUPPORT_URL = "ССЫЛКА НА АККАУНТ ПОДДЕРЖКИ Например:https://t.me/your_support";
+
+var IMG_MAIN = "https://raw.githubusercontent.com/ТВОЙ НИК С GITHUB/1trade/main/main.png"; 
+var IMG_REG = "https://raw.githubusercontent.com/ТВОЙ НИК С GITHUB/1trade/main/reg.png";
+var IMG_FINAL = "https://raw.githubusercontent.com/ТВОЙ НИК С GITHUB/1trade/main/final.png";
+
+var TEXTS = {
+  'start': "🏛 **BINARY ANALYTICS v4.2**\n\nДобро пожаловать в закрытый терминал анализа волатильности рынка 1TRADE.\n\nДанный бот занимает **TOP-1** в СНГ по точности прогнозирования котировок. Средний показатель проходимости сигналов — **83.7%**.\n\nЧтобы активировать доступ к нейросети, необходимо подтвердить членство в нашем сообществе.",
+  'sub_btn': "ВСТУПИТЬ В СООБЩЕСТВО 📈",
+  'check_btn': "ПОДТВЕРДИТЬ ПОДПИСКУ ✅",
+  'reg_req': "✅ **ПОДПИСКА ПОДТВЕРЖДЕНА**\n\nДля активации торгового алгоритма и связи с вашим аккаунтом 1TRADE, выполните следующие шаги:\n\n1. Создайте аккаунт по кнопке ниже (обязательно для синхронизации).\n2. Нажмите **«АКТИВИРОВАТЬ»** для калибровки сигналов под ваш баланс.",
+  'reg_btn': "СОЗДАТЬ АККАУНТ 💎",
+  'confirm_btn': "АКТИВИРОВАТЬ СОФТ ⚙️",
+  'final': "💻 **ТЕРМИНАЛ АКТИВИРОВАН**\n\nСинхронизация с сервером 1TRADE прошла успешно. Нейросеть готова к выдаче прогнозов.\n\nИспользуйте кнопку ниже для входа в торговый интерфейс.",
+  'play': "ОТКРЫТЬ ТЕРМИНАЛ 📊",
+  'err': "⚠️ Доступ заблокирован. Подписка не обнаружена."
+};
+
+function doPost(e) {
+  try {
+    var update = JSON.parse(e.postData.contents);
+    if (update.message && update.message.text === "/start") sendMenu(update.message.chat.id);
+    if (update.callback_query) handleCallback(update.callback_query);
+  } catch (err) {}
+}
+
+function handleCallback(query) {
+  var chatId = query.message.chat.id;
+  var msgId = query.message.message_id;
+  var data = query.data;
+  var userId = query.from.id;
+
+  if (data === "check_sub") {
+    if (checkSubscription(userId)) { deleteMessage(chatId, msgId); sendRegMenu(chatId); }
+    else { answerCallback(query.id, TEXTS.err); }
+  } else if (data === "confirm_reg") {
+    deleteMessage(chatId, msgId); sendFinalMenu(chatId);
+  }
+}
+
+function checkSubscription(userId) {
+  var url = "https://api.telegram.org/bot" + TOKEN + "/getChatMember?chat_id=" + CHANNEL_ID + "&user_id=" + userId;
+  try {
+    var res = JSON.parse(UrlFetchApp.fetch(url, {muteHttpExceptions: true}).getContentText());
+    return (res.ok && ["member", "administrator", "creator"].indexOf(res.result.status) !== -1);
+  } catch (e) { return false; }
+}
+
+function sendMenu(chatId) {
+  var kb = { inline_keyboard: [[{text: TEXTS.sub_btn, url: "https://t.me/" + CHANNEL_ID.replace("@","")}], [{text: TEXTS.check_btn, callback_data: "check_sub"}]] };
+  sendPhoto(chatId, IMG_MAIN, TEXTS.start, kb);
+}
+
+function sendRegMenu(chatId) {
+  var kb = { inline_keyboard: [[{text: TEXTS.reg_btn, url: REG_URL}], [{text: TEXTS.confirm_btn, callback_data: "confirm_reg"}]] };
+  sendPhoto(chatId, IMG_REG, TEXTS.reg_req, kb);
+}
+
+function sendFinalMenu(chatId) {
+  var kb = { inline_keyboard: [[{text: TEXTS.play, web_app: {url: MINI_APP_URL}}]] };
+  sendPhoto(chatId, IMG_FINAL, TEXTS.final, kb);
+}
+
+function sendPhoto(chatId, photo, caption, kb) {
+  var url = "https://api.telegram.org/bot" + TOKEN + "/sendPhoto";
+  var payload = { chat_id: String(chatId), photo: photo, caption: caption, parse_mode: "Markdown", reply_markup: JSON.stringify(kb) };
+  var res = JSON.parse(UrlFetchApp.fetch(url, { method: "post", contentType: "application/json", payload: JSON.stringify(payload), muteHttpExceptions: true }).getContentText());
+  
+  if (!res.ok) {
+    var urlMsg = "https://api.telegram.org/bot" + TOKEN + "/sendMessage";
+    UrlFetchApp.fetch(urlMsg, { method: "post", contentType: "application/json", payload: JSON.stringify({ chat_id: String(chatId), text: caption, parse_mode: "Markdown", reply_markup: JSON.stringify(kb) }), muteHttpExceptions: true });
+  }
+}
+
+function deleteMessage(chatId, msgId) {
+  UrlFetchApp.fetch("https://api.telegram.org/bot" + TOKEN + "/deleteMessage", { method: "post", contentType: "application/json", payload: JSON.stringify({ chat_id: String(chatId), message_id: msgId }), muteHttpExceptions: true });
+}
+
+function answerCallback(id, text) {
+  UrlFetchApp.fetch("https://api.telegram.org/bot" + TOKEN + "/answerCallbackQuery", { method: "post", contentType: "application/json", payload: JSON.stringify({ callback_query_id: id, text: text, show_alert: true }), muteHttpExceptions: true });
+}
